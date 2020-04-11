@@ -7,6 +7,7 @@ Created on Sat Jul 20 21:16:51 2019
 
 
 import torch
+import torch.nn.functional as F
 import pandas as pd
 from torchvision import transforms, utils
 from torch.utils.data import Dataset, DataLoader
@@ -58,7 +59,11 @@ def make_pred_multilabel(dataloader, model, UNCERTAINTY="zeros", epoch=0, save_a
         # batch_size = true_labels.shape
 
         outputs = model(inputs)
-        outputs = torch.sigmoid(outputs)
+        if UNCERTAINTY == 'anchor_zeros':
+            outputs = outputs.view(outputs.shape[0], 2, -1)
+            outputs = F.softmax(outputs, dim=1)[0]
+        else:
+            outputs = torch.sigmoid(outputs)
         probs = outputs.cpu().data.numpy()
 
         # get predictions and true values for each item in batch

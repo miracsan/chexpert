@@ -56,11 +56,9 @@ class CheXpertDataset(Dataset):
         self.df = self.df.drop(['Sex', 'Age', 'Frontal/Lateral','AP/PA'], axis=1) #Drop these columns because we won't be needing them
         self.df = self.df.fillna(value=0) #Fill in the missing values with zeros (negative)
         
-        if uncertainty in ['zeros','batchwise_zeros', 'weighted_zeros',
-                           'effective_num_zeros', 'effective_num_gradnorm_zeros',
-                           'focal_zeros', 'focal_gradnorm_zeros', 'effective_num_focal_zeros']: #If the zeros uncertainty method is used, treat all uncertain labels as zeros
+        if "zeros" in uncertainty: #If the zeros uncertainty method is used, treat all uncertain labels as zeros
             self.df = self.df.replace(-1, 0)
-        elif uncertainty == 'ones': #If the ones uncertainty method is used, treat all uncertain labels as ones
+        elif "ones" in uncertainty: #If the ones uncertainty method is used, treat all uncertain labels as ones
             self.df = self.df.replace(-1, 1)
         
         

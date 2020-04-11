@@ -15,6 +15,7 @@ import torch.nn as nn
 from trainModel import train_model
 from makePredictions import make_pred_multilabel
 import torch.optim as optim
+import itertools
 
 def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="zeros", use_gpu=1):
     """
@@ -59,6 +60,8 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
         model = USE_MODEL['model']
         starting_epoch = USE_MODEL['epoch']
         UNCERTAINTY = USE_MODEL['uncertainty']
+        if 'criterion' in USE_MODEL:
+            criterion = USE_MODEL['criterion']
     else:
         starting_epoch = 0
         model = models.densenet121(pretrained=True)
@@ -67,6 +70,8 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
         # activation
         if UNCERTAINTY in ["multiclass", 'weighted_multiclass']:
             model.classifier = nn.Linear(num_ftrs, 3 * N_LABELS)
+        elif "anchor" in UNCERTAINTY:
+            model.classifier = nn.Linear(num_ftrs, 2 * N_LABELS)
         else:
             model.classifier = nn.Linear(num_ftrs, N_LABELS)
 
@@ -80,16 +85,16 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
     data_transforms = {
         'train': transforms.Compose([
             transforms.RandomHorizontalFlip(),
-            transforms.Scale(320),
+            transforms.Scale(224),
             # because scale doesn't always give 224 x 224, this ensures 224 x
             # 224
-            transforms.CenterCrop(320),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([
-            transforms.Scale(320),
-            transforms.CenterCrop(320),
+            transforms.Scale(224),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ])
@@ -113,51 +118,59 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
 
     # define criterion, optimizer for training
     #TODO: Reimplement the loss functions (include sigmoid or BCEWithLogitsLoss)
-    if UNCERTAINTY == "ignore":
-        criterion = BCEwithIgnore()
-    elif UNCERTAINTY == "multiclass":
-        criterion = nn.CrossEntropyLoss()
-    elif UNCERTAINTY == 'weighted_multiclass':
-        label_weights = torch.tensor(transformed_datasets['train'].getWeights(uncertainty='weighted_multiclass'))
-        label_weights = label_weights.to(torch.device("cuda"))
-        criterion = WeightedCrossEntropy(label_weights)
-    elif UNCERTAINTY == "weighted_zeros":
-        label_weights = torch.tensor(transformed_datasets['train'].getWeights())
-        label_weights = label_weights.to(torch.device("cuda"))
-        criterion = WeightedBCE(label_weights)
-    elif UNCERTAINTY == 'effective_num_zeros':
-        intra_class_weights=transformed_datasets['train'].effective_num_weights()
-        print("intra_class_weights: {0}".format(intra_class_weights))
-        criterion = nn.BCEWithLogitsLoss(pos_weight=intra_class_weights)
-    elif UNCERTAINTY == 'effective_num_gradnorm_zeros':
-        intra_class_weights=transformed_datasets['train'].effective_num_weights()
-        print("intra_class_weights: {0}".format(intra_class_weights))
-        criterion = EffectiveNumGradNormLoss(model=model, pos_weight=intra_class_weights)
-    elif UNCERTAINTY == 'focal_zeros':
-        criterion = WeightedFocalLoss(inter_class_weights=np.ones(N_LABELS), intra_class_weights=np.ones(N_LABELS))
-    elif UNCERTAINTY == 'effective_num_focal_zeros':
-        intra_class_weights=transformed_datasets['train'].effective_num_weights()
-        criterion = WeightedFocalLoss(inter_class_weights=np.ones(N_LABELS), intra_class_weights=intra_class_weights)     
-    elif UNCERTAINTY == 'focal_gradnorm_zeros':
-        criterion = FocalGradNormLoss(model=model, N_LABELS=N_LABELS)
-    else:
-        criterion = nn.BCEWithLogitsLoss()
+    try:
+        criterion
+    except NameError:
+        if UNCERTAINTY == "ignore":
+            criterion = BCEwithIgnore()
+        elif UNCERTAINTY == "multiclass":
+            criterion = nn.CrossEntropyLoss()
+        elif UNCERTAINTY == 'weighted_multiclass':
+            label_weights = torch.tensor(transformed_datasets['train'].getWeights(uncertainty='weighted_multiclass'))
+            label_weights = label_weights.to(torch.device("cuda"))
+            criterion = WeightedCrossEntropy(label_weights)
+        elif UNCERTAINTY == "weighted_zeros":
+            label_weights = torch.tensor(transformed_datasets['train'].getWeights())
+            label_weights = label_weights.to(torch.device("cuda"))
+            criterion = WeightedBCE(label_weights)
+        elif UNCERTAINTY == 'effective_num_zeros':
+            intra_class_weights=transformed_datasets['train'].effective_num_weights()
+            print("intra_class_weights: {0}".format(intra_class_weights))
+            criterion = nn.BCEWithLogitsLoss(pos_weight=intra_class_weights)
+        elif UNCERTAINTY == 'effective_num_gradnorm_zeros':
+            intra_class_weights=transformed_datasets['train'].effective_num_weights()
+            print("intra_class_weights: {0}".format(intra_class_weights))
+            criterion = EffectiveNumGradNormLoss(model=model, pos_weight=intra_class_weights)
+        elif UNCERTAINTY == 'focal_zeros':
+            criterion = WeightedFocalLoss(inter_class_weights=np.ones(N_LABELS), intra_class_weights=np.ones(N_LABELS))
+        elif UNCERTAINTY == 'effective_num_focal_zeros':
+            intra_class_weights=transformed_datasets['train'].effective_num_weights()
+            criterion = WeightedFocalLoss(inter_class_weights=np.ones(N_LABELS), intra_class_weights=intra_class_weights)     
+        elif UNCERTAINTY == 'focal_gradnorm_zeros':
+            criterion = FocalGradNormLoss(model=model, N_LABELS=N_LABELS)
+        elif UNCERTAINTY == 'multitask_learning_zeros':
+            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS))
+        elif UNCERTAINTY == 'anchor_zeros':
+            criterion = MultilabelAnchorLoss()
+        else:
+            criterion = nn.BCEWithLogitsLoss()
         
-    #optimizer = optim.SGD(
+    param_iter = filter(lambda p: p.requires_grad, model.parameters())
+    if UNCERTAINTY == 'multitask_learning_zeros':
+        param_iter = itertools.chain([criterion.log_vars], param_iter)
+    optimizer = optim.SGD(
+        param_iter,
+        lr=LR,
+        momentum=0.9,
+        weight_decay=WEIGHT_DECAY)
+    
+    #optimizer = optim.Adam(
     #    filter(
     #        lambda p: p.requires_grad,
     #        model.parameters()),
     #    lr=LR,
-    #    momentum=0.9,
+    #    betas=(0.9, 0.999),
     #    weight_decay=WEIGHT_DECAY)
-    
-    optimizer = optim.Adam(
-        filter(
-            lambda p: p.requires_grad,
-            model.parameters()),
-        lr=LR,
-        betas=(0.9, 0.999),
-        weight_decay=WEIGHT_DECAY)
 
 
     # train model

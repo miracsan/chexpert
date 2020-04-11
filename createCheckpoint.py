@@ -7,7 +7,7 @@ Created on Sat Jul 20 21:11:18 2019
 import torch
 import os
 
-def create_checkpoint(model, epoch_loss, epoch, LR, uncertainty):
+def create_checkpoint(model, epoch_loss, epoch, LR, uncertainty, criterion):
     """
     Saves a checkpoint of the model
 
@@ -28,7 +28,8 @@ def create_checkpoint(model, epoch_loss, epoch, LR, uncertainty):
         'epoch': epoch,
         'rng_state': torch.get_rng_state(),
         'LR': LR,
-        'uncertainty': uncertainty 
+        'uncertainty': uncertainty,
+        'criterion' : criterion
     }
 
     torch.save(state, os.path.join('results',uncertainty,'checkpoint'+str(epoch)))

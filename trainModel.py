@@ -165,7 +165,7 @@ def train_model(
             '''
             # checkpoint model if has best val loss yet
             if phase == 'val':   
-                create_checkpoint(model, epoch_loss, epoch, LR, uncertainty)
+                create_checkpoint(model, epoch_loss, epoch, LR, uncertainty, criterion)
                 preds, aucs = make_pred_multilabel(dataloader=dataloaders["val"],
                                        model=model,
                                        UNCERTAINTY=uncertainty,
