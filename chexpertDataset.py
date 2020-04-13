@@ -141,6 +141,15 @@ class CheXpertDataset(Dataset):
         weights = weights.cuda()
         weights = weights.type(torch.cuda.FloatTensor)
         return weights
+    
+    def pos_neg_sample_nums(self):
+        df = self.df[self.PRED_LABEL]
+        N, C = df.shape
+        pos_neg_sample_nums = np.zeros((2,C))
+        pos_neg_sample_nums[0, :] = df.sum(axis=0).values
+        pos_neg_sample_nums[1, :] = N - pos_neg_sample_nums[0, :]
+        del df
+        return pos_neg_sample_nums
 
 
 def createDatasets(PATH_TO_MAIN_FOLDER, data_transforms, UNCERTAINTY):

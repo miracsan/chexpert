@@ -9,6 +9,35 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+class WeightedLDAMLoss(torch.nn.Module):
+    
+    def __init__(self, pos_neg_sample_nums, inter_class_weights, C=0.5):
+        super(WeightedLDAMLoss, self).__init__()
+        self.inter_class_weights = torch.cuda.FloatTensor(inter_class_weights)
+        
+        m_list = 1.0 / np.sqrt(np.sqrt(pos_neg_sample_nums))
+        m_list = m_list * (C / np.max(m_list, axis=0))
+        self.pos_deltas = torch.cuda.FloatTensor(m_list[0,:])
+        self.neg_deltas = torch.cuda.FloatTensor(m_list[1,:])
+
+    def forward(self, output, target):
+        N_LABELS = target.shape[1]
+        inv_target = 1 - target 
+        probs = torch.sigmoid(output)
+        pos_score, neg_score = probs[:, :N_LABELS], probs[:, N_LABELS:]
+        
+        pos_score = output[:,:14];
+        neg_score = output[:,14:];
+        exp_pos_score = torch.exp(pos_score);
+        exp_pos_core_minus_delta = torch.exp(pos_score - self.pos_deltas);
+        exp_neg_score = torch.exp(neg_score);
+        exp_neg_score_minus_delta = torch.exp(neg_score - self.neg_deltas);
+        first_loss_term = -1 * target * torch.log(exp_pos_core_minus_delta/(exp_pos_core_minus_delta + exp_neg_score));
+        second_loss_term = -1 * inv_target * torch.log(exp_neg_score_minus_delta/(exp_neg_score_minus_delta + exp_pos_score));
+        cost_table = self.inter_class_weights * (first_loss_term + second_loss_term);
+        
+        return torch.mean(cost_table)
+
 
 class MultilabelAnchorLoss(torch.nn.Module):
     def __init__(self, gamma=0.5, sigma=0.05):
@@ -29,7 +58,7 @@ class MultilabelAnchorLoss(torch.nn.Module):
         neg_cost_terms_1 = - (inv_target * torch.log(neg_probs))
         neg_cost_terms_2 = - (target * torch.pow((1 + neg_probs - thresh), self.gamma) * torch.log(1 - neg_probs))
         
-        total_loss = torch.mean(pos_cost_terms_1, pos_cost_terms_2, neg_cost_terms_1, neg_cost_terms_2)
+        total_loss = torch.mean(pos_cost_terms_1 + pos_cost_terms_2 + neg_cost_terms_1 + neg_cost_terms_2)
         
         return total_loss
         

@@ -59,9 +59,9 @@ def make_pred_multilabel(dataloader, model, UNCERTAINTY="zeros", epoch=0, save_a
         # batch_size = true_labels.shape
 
         outputs = model(inputs)
-        if UNCERTAINTY == 'anchor_zeros':
+        if ("anchor" in UNCERTAINTY) or ("LDAM" in UNCERTAINTY):
             outputs = outputs.view(outputs.shape[0], 2, -1)
-            outputs = F.softmax(outputs, dim=1)[0]
+            outputs = F.softmax(outputs, dim=1)[:, 0, :]
         else:
             outputs = torch.sigmoid(outputs)
         probs = outputs.cpu().data.numpy()

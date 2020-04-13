@@ -70,7 +70,7 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
         # activation
         if UNCERTAINTY in ["multiclass", 'weighted_multiclass']:
             model.classifier = nn.Linear(num_ftrs, 3 * N_LABELS)
-        elif "anchor" in UNCERTAINTY:
+        elif ("anchor" in UNCERTAINTY) or ("LDAM" in UNCERTAINTY):
             model.classifier = nn.Linear(num_ftrs, 2 * N_LABELS)
         else:
             model.classifier = nn.Linear(num_ftrs, N_LABELS)
@@ -152,6 +152,10 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
             criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS))
         elif UNCERTAINTY == 'anchor_zeros':
             criterion = MultilabelAnchorLoss()
+        elif UNCERTAINTY == 'LDAM_zeros':
+            pos_neg_sample_nums = transformed_datasets['train'].pos_neg_sample_nums()
+            criterion = WeightedLDAMLoss(pos_neg_sample_nums=pos_neg_sample_nums,
+                                         inter_class_weights=np.ones(N_LABELS))
         else:
             criterion = nn.BCEWithLogitsLoss()
         

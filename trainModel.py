@@ -166,12 +166,12 @@ def train_model(
             # checkpoint model if has best val loss yet
             if phase == 'val':   
                 create_checkpoint(model, epoch_loss, epoch, LR, uncertainty, criterion)
-                preds, aucs = make_pred_multilabel(dataloader=dataloaders["val"],
-                                       model=model,
-                                       UNCERTAINTY=uncertainty,
-                                       epoch=epoch)
-                aucs.set_index('label', inplace=True)
-                print(aucs)
+                #preds, aucs = make_pred_multilabel(dataloader=dataloaders["val"],
+                #                       model=model,
+                #                       UNCERTAINTY=uncertainty,
+                #                       epoch=epoch)
+                #aucs.set_index('label', inplace=True)
+                #print(aucs)
                 if epoch_loss < best_loss:
                   best_loss = epoch_loss
                   best_epoch = epoch
