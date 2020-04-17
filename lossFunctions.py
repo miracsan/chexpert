@@ -66,16 +66,17 @@ class MultilabelAnchorLoss(torch.nn.Module):
 
 class MultitaskLearningLoss(torch.nn.Module):
     
-    def __init__(self, log_vars):
+    def __init__(self, log_vars, intra_class_weights):
         super(MultitaskLearningLoss, self).__init__()
         self.log_vars = torch.cuda.FloatTensor(log_vars)
         self.log_vars.requires_grad_(True)
+        self.intra_class_weights = torch.cuda.FloatTensor(intra_class_weights)
     
     def forward(self, output, target):
         inter_class_weights = torch.exp(-2 * self.log_vars)
         sum_log_vars = torch.sum(self.log_vars)
         
-        cost_terms = F.binary_cross_entropy_with_logits(output, target, reduction='none')
+        cost_terms = F.binary_cross_entropy_with_logits(output, target, reduction='none', pos_weight=self.intra_class_weights)
         weighted_cost_terms = cost_terms * inter_class_weights
         
         total_task_loss = torch.mean(weighted_cost_terms) + sum_log_vars

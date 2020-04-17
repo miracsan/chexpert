@@ -149,18 +149,27 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
         elif UNCERTAINTY == 'focal_gradnorm_zeros':
             criterion = FocalGradNormLoss(model=model, N_LABELS=N_LABELS)
         elif UNCERTAINTY == 'multitask_learning_zeros':
-            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS))
+            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=np.ones(N_LABELS))
+        elif UNCERTAINTY == 'effective_num_multitask_learning_zeros':
+            intra_class_weights=transformed_datasets['train'].effective_num_weights()
+            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=intra_class_weights)    
         elif UNCERTAINTY == 'anchor_zeros':
             criterion = MultilabelAnchorLoss()
         elif UNCERTAINTY == 'LDAM_zeros':
             pos_neg_sample_nums = transformed_datasets['train'].pos_neg_sample_nums()
             criterion = WeightedLDAMLoss(pos_neg_sample_nums=pos_neg_sample_nums,
                                          inter_class_weights=np.ones(N_LABELS))
+        elif UNCERTAINTY == 'effective_num_LDAM_zeros':
+            pos_neg_sample_nums = transformed_datasets['train'].pos_neg_sample_nums()
+            inter_class_weights=transformed_datasets['train'].effective_num_weights(mode='inter')
+            criterion = WeightedLDAMLoss(pos_neg_sample_nums=pos_neg_sample_nums,
+                                         inter_class_weights=inter_class_weights)
         else:
             criterion = nn.BCEWithLogitsLoss()
         
     param_iter = filter(lambda p: p.requires_grad, model.parameters())
-    if UNCERTAINTY == 'multitask_learning_zeros':
+    if 'multitask_learning' in UNCERTAINTY:
+        print('multitask learning')
         param_iter = itertools.chain([criterion.log_vars], param_iter)
     optimizer = optim.SGD(
         param_iter,

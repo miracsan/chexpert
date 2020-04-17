@@ -120,7 +120,7 @@ class CheXpertDataset(Dataset):
         
         return weights
         
-    def effective_num_weights(self, beta=0.9999):
+    def effective_num_weights(self, beta=0.9999, mode='intra'):
         num_pos_samples = []
         num_neg_samples = []
 
@@ -133,13 +133,19 @@ class CheXpertDataset(Dataset):
         neg_denominator_term = 1.0 - np.power(beta, num_neg_samples);
         pos_weights = (1.0 - beta) / np.array(pos_denominator_term);
         neg_weights = (1.0 - beta) / np.array(neg_denominator_term);
-        weights_intraclass_normalized = pos_weights / (pos_weights + neg_weights) * 2;
-        #weights_interclass_normalized = weights_intraclass_normalized / np.sum(weights_intraclass_normalized) * len(weights_intraclass_normalized)
         
+        if mode == 'inter':
+            weights_interclass_normalized = pos_weights / np.sum(pos_weights) * len(pos_weights)
+            weights = weights_interclass_normalized
         
-        weights = torch.Tensor(weights_intraclass_normalized)
-        weights = weights.cuda()
-        weights = weights.type(torch.cuda.FloatTensor)
+        else:
+        
+            #weights_intraclass_normalized = pos_weights / (pos_weights + neg_weights) * 2; Bence bu yanlış
+            weights_intraclass_normalized = pos_weights / (neg_weights + 0.001)
+            weights = weights_intraclass_normalized
+            #weights = torch.Tensor(weights_intraclass_normalized)
+            #weights = weights.cuda()
+            #weights = weights.type(torch.cuda.FloatTensor)
         return weights
     
     def pos_neg_sample_nums(self):
