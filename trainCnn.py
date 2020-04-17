@@ -152,9 +152,11 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
             criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=np.ones(N_LABELS))
         elif UNCERTAINTY == 'effective_num_multitask_learning_zeros':
             intra_class_weights=transformed_datasets['train'].effective_num_weights()
-            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=intra_class_weights)    
+            criterion = MultitaskLearningLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=intra_class_weights)   
         elif UNCERTAINTY == 'anchor_zeros':
             criterion = MultilabelAnchorLoss()
+        elif UNCERTAINTY == 'multitask_learning_anchor_zeros':
+            criterion = MultitaskLearningAnchorLoss(log_vars = np.zeros(N_LABELS), intra_class_weights=np.ones(N_LABELS))
         elif UNCERTAINTY == 'LDAM_zeros':
             pos_neg_sample_nums = transformed_datasets['train'].pos_neg_sample_nums()
             criterion = WeightedLDAMLoss(pos_neg_sample_nums=pos_neg_sample_nums,

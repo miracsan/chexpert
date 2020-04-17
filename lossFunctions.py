@@ -61,8 +61,39 @@ class MultilabelAnchorLoss(torch.nn.Module):
         total_loss = torch.mean(pos_cost_terms_1 + pos_cost_terms_2 + neg_cost_terms_1 + neg_cost_terms_2)
         
         return total_loss
+    
+    
+class MultitaskLearningAnchorLoss(torch.nn.Module) :
+    
+    def __init__(self, log_vars, intra_class_weights, gamma=0.5, sigma=0.05):
+        super(MultitaskLearningAnchorLoss, self).__init__()
+        self.log_vars = torch.cuda.FloatTensor(log_vars)
+        self.log_vars.requires_grad_(True)
+        self.intra_class_weights = torch.cuda.FloatTensor(intra_class_weights)
+        self.gamma = gamma
+        self.sigma = sigma
         
-
+    def forward(self, output, target):
+        inter_class_weights = torch.exp(-2 * self.log_vars)
+        sum_log_vars = torch.sum(self.log_vars)
+        
+        N_LABELS = target.shape[1]
+        inv_target = 1 - target     
+        probs = torch.sigmoid(output) #32x28
+        pos_probs, neg_probs = probs[:, :N_LABELS], probs[:, N_LABELS:] #32x14
+        
+        thresh = target * pos_probs + inv_target * neg_probs - self.sigma
+        
+        pos_cost_terms_1 = - (target * torch.log(pos_probs))
+        pos_cost_terms_2 = - (inv_target * torch.pow((1 + pos_probs - thresh), self.gamma) * torch.log(1 - pos_probs))
+        neg_cost_terms_1 = - (inv_target * torch.log(neg_probs))
+        neg_cost_terms_2 = - (target * torch.pow((1 + neg_probs - thresh), self.gamma) * torch.log(1 - neg_probs))
+        
+        total_cost_terms = pos_cost_terms_1 + pos_cost_terms_2 + neg_cost_terms_1 + neg_cost_terms_2        
+        weighted_cost_terms = cost_terms * inter_class_weights        
+        total_task_loss = torch.mean(weighted_cost_terms) + sum_log_vars
+        
+        return total_task_loss
 
 class MultitaskLearningLoss(torch.nn.Module):
     
@@ -82,9 +113,7 @@ class MultitaskLearningLoss(torch.nn.Module):
         total_task_loss = torch.mean(weighted_cost_terms) + sum_log_vars
         
         return total_task_loss
-        
-   
-
+  
         
 class WeightedFocalLoss(torch.nn.Module):
     def __init__(self, inter_class_weights, intra_class_weights, focal_power=1):
