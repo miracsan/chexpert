@@ -84,10 +84,10 @@ class MultitaskLearningAnchorLoss(torch.nn.Module) :
         
         thresh = target * pos_probs + inv_target * neg_probs - self.sigma
         
-        pos_cost_terms_1 = - (target * torch.log(pos_probs))
-        pos_cost_terms_2 = - (inv_target * torch.pow((1 + pos_probs - thresh), self.gamma) * torch.log(1 - pos_probs))
-        neg_cost_terms_1 = - (inv_target * torch.log(neg_probs))
-        neg_cost_terms_2 = - (target * torch.pow((1 + neg_probs - thresh), self.gamma) * torch.log(1 - neg_probs))
+        pos_cost_terms_1 = - (target * torch.log(pos_probs + 1e-12))
+        pos_cost_terms_2 = - (inv_target * torch.pow((1 + pos_probs - thresh), self.gamma) * torch.log(1 - pos_probs + 1e-12))
+        neg_cost_terms_1 = - (inv_target * torch.log(neg_probs + 1e-12))
+        neg_cost_terms_2 = - (target * torch.pow((1 + neg_probs - thresh), self.gamma) * torch.log(1 - neg_probs + 1e-12))
         
         total_cost_terms = pos_cost_terms_1 + pos_cost_terms_2 + neg_cost_terms_1 + neg_cost_terms_2        
         weighted_cost_terms = total_cost_terms * inter_class_weights        

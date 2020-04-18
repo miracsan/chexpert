@@ -136,7 +136,7 @@ def train_cnn(PATH_TO_MAIN_FOLDER, LR, WEIGHT_DECAY, USE_MODEL=0,UNCERTAINTY="ze
         elif UNCERTAINTY == 'effective_num_zeros':
             intra_class_weights=transformed_datasets['train'].effective_num_weights()
             print("intra_class_weights: {0}".format(intra_class_weights))
-            criterion = nn.BCEWithLogitsLoss(pos_weight=intra_class_weights)
+            criterion = nn.BCEWithLogitsLoss(pos_weight=torch.cuda.FloatTensor(intra_class_weights))
         elif UNCERTAINTY == 'effective_num_gradnorm_zeros':
             intra_class_weights=transformed_datasets['train'].effective_num_weights()
             print("intra_class_weights: {0}".format(intra_class_weights))
