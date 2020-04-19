@@ -9,6 +9,39 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+class MultitaskLearningLDAMLoss(torch.nn.Module):
+    
+    def __init__(self, log_vars, pos_neg_sample_nums, gamma=0.5, sigma=0.05, C=0.5):
+        self.log_vars = torch.cuda.FloatTensor(log_vars)
+        self.log_vars.requires_grad_(True)
+        self.gamma = gamma
+        self.sigma = sigma
+        
+        m_list = 1.0 / np.sqrt(np.sqrt(pos_neg_sample_nums))
+        m_list = m_list * (C / np.max(m_list, axis=0))
+        self.pos_deltas = torch.cuda.FloatTensor(m_list[0,:])
+        self.neg_deltas = torch.cuda.FloatTensor(m_list[1,:])
+        
+    def forward(self, output, target):
+        N_LABELS = target.shape[1]
+        inv_target = 1 - target 
+        probs = torch.sigmoid(output)
+        pos_score, neg_score = probs[:, :N_LABELS], probs[:, N_LABELS:]
+        
+        pos_score = output[:,:14];
+        neg_score = output[:,14:];
+        exp_pos_score = torch.exp(pos_score);
+        exp_pos_core_minus_delta = torch.exp(pos_score - self.pos_deltas);
+        exp_neg_score = torch.exp(neg_score);
+        exp_neg_score_minus_delta = torch.exp(neg_score - self.neg_deltas);
+        first_cost_term = -1 * target * torch.log(exp_pos_core_minus_delta/(exp_pos_core_minus_delta + exp_neg_score));
+        second_cost_term = -1 * inv_target * torch.log(exp_neg_score_minus_delta/(exp_neg_score_minus_delta + exp_pos_score));
+        
+        weighted_cost_terms = inter_class_weights * (first_cost_term + second_cost_term);                
+        total_task_loss = torch.mean(weighted_cost_terms) + sum_log_vars
+        
+        return total_task_loss
+
 class WeightedLDAMLoss(torch.nn.Module):
     
     def __init__(self, pos_neg_sample_nums, inter_class_weights, C=0.5):
