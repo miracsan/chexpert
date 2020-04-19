@@ -32,14 +32,12 @@ class MultitaskLearningLDAMLoss(torch.nn.Module):
         probs = torch.sigmoid(output)
         pos_score, neg_score = probs[:, :N_LABELS], probs[:, N_LABELS:]
         
-        pos_score = output[:,:14];
-        neg_score = output[:,14:];
         exp_pos_score = torch.exp(pos_score);
         exp_pos_core_minus_delta = torch.exp(pos_score - self.pos_deltas);
         exp_neg_score = torch.exp(neg_score);
         exp_neg_score_minus_delta = torch.exp(neg_score - self.neg_deltas);
-        first_cost_term = -1 * target * torch.log(exp_pos_core_minus_delta/(exp_pos_core_minus_delta + exp_neg_score));
-        second_cost_term = -1 * inv_target * torch.log(exp_neg_score_minus_delta/(exp_neg_score_minus_delta + exp_pos_score));
+        first_cost_term = -1 * target * torch.log(exp_pos_core_minus_delta/(exp_pos_core_minus_delta + exp_neg_score) + 1e-12);
+        second_cost_term = -1 * inv_target * torch.log(exp_neg_score_minus_delta/(exp_neg_score_minus_delta + exp_pos_score)  + 1e-12);
         
         weighted_cost_terms = inter_class_weights * (first_cost_term + second_cost_term);                
         total_task_loss = torch.mean(weighted_cost_terms) + sum_log_vars
