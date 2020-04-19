@@ -12,6 +12,7 @@ import numpy as np
 class MultitaskLearningLDAMLoss(torch.nn.Module):
     
     def __init__(self, log_vars, pos_neg_sample_nums, gamma=0.5, sigma=0.05, C=0.5):
+        super(MultitaskLearningLDAMLoss, self).__init__()
         self.log_vars = torch.cuda.FloatTensor(log_vars)
         self.log_vars.requires_grad_(True)
         self.gamma = gamma
@@ -23,6 +24,9 @@ class MultitaskLearningLDAMLoss(torch.nn.Module):
         self.neg_deltas = torch.cuda.FloatTensor(m_list[1,:])
         
     def forward(self, output, target):
+        inter_class_weights = torch.exp(-2 * self.log_vars)
+        sum_log_vars = torch.sum(self.log_vars)
+        
         N_LABELS = target.shape[1]
         inv_target = 1 - target 
         probs = torch.sigmoid(output)
